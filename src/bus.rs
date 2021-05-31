@@ -1,7 +1,8 @@
 use crate::display::Display;
 use crate::keyboard::Keyboard;
+use crate::memory;
 use crate::memory::Memory;
-use std::time::{Duration, Instant};
+use std::time::{Instant};
 
 pub struct Bus {
     display: Display,
@@ -31,8 +32,12 @@ impl Bus {
         self.memory.write_byte(address, value)
     }
 
-    pub fn debug_draw_byte(&mut self, byte: u8, x: u8, y: u8) -> bool {
-        self.display.debug_draw_byte(byte, x, y)
+    pub fn memory_get_size(&self) -> usize {
+        memory::SIZE
+    }
+
+    pub fn draw_byte(&mut self, byte: u8, x: u8, y: u8) -> bool {
+        self.display.draw_byte(byte, x, y)
     }
 
     pub fn clear_screen(&mut self) {
@@ -58,8 +63,8 @@ impl Bus {
 
     pub fn get_delay_timer(&self) -> u8 {
         let diff = Instant::now() - self.delay_timer_set_time;
-        let ms = diff.get_millis();
-        let ticks = ms / 16;
+        let ms = diff.as_millis() as u64;
+        let ticks: u64 = ms / 16;
         if ticks >= self.delay_timer as u64 {
             0
         }
@@ -70,17 +75,5 @@ impl Bus {
 
     pub fn get_display_buffer(&self) -> &[u8] {
         self.display.get_display_buffer()
-    }
-}
-
-trait Milliseconds {
-    fn get_millis(&self) -> u64;
-}
-
-impl Milliseconds for Duration {
-    fn get_millis(&self) -> u64 {
-        let nanos = self.subsec_nanos() as u64;
-        let ms = (1000 * 1000 * 1000 * self.as_secs() + nanos) / (1000 * 1000);
-        ms
     }
 }
