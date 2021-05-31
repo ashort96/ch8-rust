@@ -24,8 +24,10 @@
 /// +---------------+ = 0x000 (0) Start of Chip-8 RAM
 /// ```
 
+pub const SIZE: usize = 4096; 
+
 pub struct Memory {
-    ram: [u8; 4096],
+    ram: [u8; SIZE],
 }
 
 impl Memory {
