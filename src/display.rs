@@ -14,7 +14,7 @@ impl Display {
         y * WIDTH + x
     }
 
-    pub fn debug_draw_byte(&mut self, byte: u8, x: u8, y: u8) -> bool {
+    pub fn draw_byte(&mut self, byte: u8, x: u8, y: u8) -> bool {
         let mut erased = false;
         let mut pos_x = x as usize;
         let mut pos_y = y as usize;
