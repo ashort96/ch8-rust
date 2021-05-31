@@ -39,14 +39,14 @@ impl Cpu {
 
         match (instruction >> 12) & 0xf {
             0x0 => {
-                match hi {
+                match instruction & 0xfff {
                     // Clear the display
-                    0xe0 => {
+                    0x0e0 => {
                         bus.clear_screen();
                         self.pc += 2;
                     }
                     // Returns from a subroutine
-                    0xee => {
+                    0x0ee => {
                         self.pc = self.stack[self.sp as usize];
                         self.sp -= 1;
                     }
@@ -298,7 +298,7 @@ impl Cpu {
         let mut should_set_vf = false;
         for sprite_y in 0..height {
             let b = bus.memory_read_byte(self.i + sprite_y as u16);
-            if bus.debug_draw_byte(b, x, y + sprite_y) {
+            if bus.draw_byte(b, x, y + sprite_y) {
                 should_set_vf = true;
             }
         }
