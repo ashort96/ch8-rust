@@ -43,7 +43,7 @@ fn get_chip8_keycode_for(key: Option<Key>) -> Option<u8> {
 
 fn main() {
 
-    let file = File::open("./data/PONG.ch8");
+    let file = File::open("./data/PONG2.ch8");
     let mut data = Vec::<u8>::new();
 
     // Make sure we can read the ROM
@@ -106,10 +106,10 @@ fn main() {
             let chip8_buffer = chip8.get_display_buffer();
 
             for y in 0..height {
-                let y_coord = y / 10;
+                let y_pos = y / 10;
                 let offset = y * width;
                 for x in 0..width {
-                    let index = display::Display::get_index_from_coords(x / 10, y_coord);
+                    let index = display::Display::get_index_from_coords(x / 10, y_pos);
                     let pixel = chip8_buffer[index];
                     let color_pixel = match pixel {
                         0 => 0x0,
@@ -119,7 +119,6 @@ fn main() {
                     buffer[offset + x] = color_pixel;
                 }
             }
-
             match window.update_with_buffer(&buffer, width, height) {
                 Ok(_) => {},
                 Err(e) => panic!("Error updating window: {:#?}", e)
