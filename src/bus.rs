@@ -77,3 +77,28 @@ impl Bus {
         self.display.get_display_buffer()
     }
 }
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    pub fn test_memory_read_byte() {
+        let address: u16 = 0x400;
+        let value: u8 = 0x8;
+
+        let mut bus = Bus::new();
+        bus.memory.write_byte(address, value);
+        assert_eq!(bus.memory_read_byte(address), value);
+    }
+
+    #[test]
+    pub fn test_memory_write_byte() {
+        let address: u16 = 0x410;
+        let value: u8 = 0x9;
+
+        let mut bus = Bus::new();
+        bus.memory_write_byte(address, value);
+        assert_eq!(bus.memory.read_byte(address), value);
+    }
+}
