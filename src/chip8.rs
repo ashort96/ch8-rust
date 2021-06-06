@@ -52,7 +52,7 @@ mod test {
 
     #[test]
     #[should_panic]
-    pub fn overflow_load_rom() {
+    pub fn test_overflow_load_rom() {
         let data: Vec<u8> = vec![0; MAX_ROM_SIZE + 1];
         let mut chip8 = Chip8::new();
         chip8.load_rom(&data);
@@ -60,14 +60,14 @@ mod test {
 
     #[test]
     #[should_panic]
-    pub fn empty_load_rom() {
+    pub fn test_empty_load_rom() {
         let data: Vec<u8> = vec![0; 0];
         let mut chip8 = Chip8::new();
         chip8.load_rom(&data);
     }
 
     #[test]
-    pub fn max_load_rom() {
+    pub fn test_max_load_rom() {
         let data: Vec<u8> = vec![3; MAX_ROM_SIZE];
         let mut chip8 = Chip8::new();
         chip8.load_rom(&data);
