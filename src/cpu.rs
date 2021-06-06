@@ -165,6 +165,7 @@ impl Cpu {
             }
             // Skip next instruction if Vx != Vy
             0x9 => {
+                assert_eq!(0, n);
                 if self.read_reg(x) != self.read_reg(y) {
                     self.pc += 4;
                 }
@@ -675,4 +676,77 @@ mod test {
         assert_eq!(cpu.v[1], 0x81 << 1);
         assert_eq!(cpu.v[15], 1);
     }
+
+    #[test]
+    pub fn test_9xy0_not_equal() {
+        let mut cpu = Cpu::new();
+        let mut bus = Bus::new();
+        let previous_pc = cpu.pc;
+        cpu.v[1] = 0x81;
+        cpu.v[2] = 0x82;
+        put_first_instruction(&mut bus, 0x9120);
+
+        cpu.run_instruction(&mut bus);
+
+        assert_eq!(previous_pc + 4, cpu.pc);
+    }
+
+    #[test]
+    pub fn test_9xy0_equal() {
+        let mut cpu = Cpu::new();
+        let mut bus = Bus::new();
+        let previous_pc = cpu.pc;
+        cpu.v[1] = 0x81;
+        cpu.v[2] = 0x81;
+        put_first_instruction(&mut bus, 0x9120);
+
+        cpu.run_instruction(&mut bus);
+
+        assert_eq!(previous_pc + 2, cpu.pc);
+    }
+
+    #[test]
+    #[should_panic]
+    pub fn test_9xy0_last_0() {
+        let mut cpu = Cpu::new();
+        let mut bus = Bus::new();
+        let previous_pc = cpu.pc;
+        cpu.v[1] = 0x81;
+        cpu.v[2] = 0x81;
+        put_first_instruction(&mut bus, 0x9121);
+
+        cpu.run_instruction(&mut bus);
+
+        assert_eq!(previous_pc + 2, cpu.pc);
+    }
+
+    #[test]
+    #[allow(non_snake_case)]
+    pub fn test_Annn() {
+        let mut cpu = Cpu::new();
+        let mut bus = Bus::new();
+        let previous_pc = cpu.pc;
+        put_first_instruction(&mut bus, 0xA123);
+
+        cpu.run_instruction(&mut bus);
+
+        assert_eq!(previous_pc + 2, cpu.pc);
+        assert_eq!(cpu.i, 0x123);
+    }
+
+    #[test]
+    #[allow(non_snake_case)]
+    pub fn test_Bnnn() {
+        let mut cpu = Cpu::new();
+        let mut bus = Bus::new();
+        cpu.v[0] = 0x45;
+        put_first_instruction(&mut bus, 0xB123);
+
+        cpu.run_instruction(&mut bus);
+
+        assert_eq!(cpu.pc, 0x123 + 0x45);
+    }
+
+
+
 }
