@@ -86,6 +86,7 @@ impl Cpu {
             }
             // Skip next instruction if Vx == Vx
             0x5 => {
+                assert_eq!(0, n);
                 if self.read_reg(x) == self.read_reg(y) {
                     self.pc += 4;
                 }
@@ -148,8 +149,9 @@ impl Cpu {
                     }
                     // Set Vx = Vy - Vx, set VF = NOT borrow
                     0x7 => {
-                        self.write_flag_reg(if y > x {1} else {0});
-                        self.write_reg(x, self.read_reg(y) - self.read_reg(x));
+                        let (value, _) = self.read_reg(y).overflowing_sub(self.read_reg(x));
+                        self.write_flag_reg(if self.read_reg(y) > self.read_reg(x) {1} else {0});
+                        self.write_reg(x, value);
                         self.pc += 2;
                     }
                     // Set Vx = Vx SHL 1
@@ -309,4 +311,368 @@ impl Cpu {
         }
     }
 
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    pub fn put_first_instruction(bus: &mut Bus, instruction: u16) {
+        bus.memory_write_byte(0x200, ((instruction & 0xff00) >> 8) as u8);
+        bus.memory_write_byte(0x201, (instruction & 0xff) as u8);
+    }
+
+    #[test]
+    pub fn test_2nnn() {
+        let mut cpu = Cpu::new();
+        let mut bus = Bus::new();
+        let previous_pc = cpu.pc;
+        put_first_instruction(&mut bus, 0x2345);
+
+        cpu.run_instruction(&mut bus);
+
+        assert_eq!(0x345, cpu.pc);
+        assert_eq!(1, cpu.sp);
+        assert_eq!(previous_pc + 2, cpu.stack[1]);
+    }
+
+    #[test]
+    pub fn test_3xkk_not_equal() {
+        let mut cpu = Cpu::new();
+        let mut bus = Bus::new();
+        let previous_pc = cpu.pc;
+        cpu.v[1] = 0x44;
+        put_first_instruction(&mut bus, 0x3145);
+
+        cpu.run_instruction(&mut bus);
+
+        assert_eq!(previous_pc + 2, cpu.pc);
+    }
+
+    #[test]
+    pub fn test_3xkk_equal() {
+        let mut cpu = Cpu::new();
+        let mut bus = Bus::new();
+        let previous_pc = cpu.pc;
+        cpu.v[1] = 0x45;
+        put_first_instruction(&mut bus, 0x3145);
+
+        cpu.run_instruction(&mut bus);
+
+        assert_eq!(previous_pc + 4, cpu.pc);
+    }
+
+    #[test]
+    pub fn test_4xkk_not_equal() {
+        let mut cpu = Cpu::new();
+        let mut bus = Bus::new();
+        let previous_pc = cpu.pc;
+        cpu.v[1] = 0x54;
+        put_first_instruction(&mut bus, 0x4155);
+
+        cpu.run_instruction(&mut bus);
+
+        assert_eq!(previous_pc + 4, cpu.pc);
+    }
+
+    #[test]
+    pub fn test_4xkk_equal() {
+        let mut cpu = Cpu::new();
+        let mut bus = Bus::new();
+        let previous_pc = cpu.pc;
+        cpu.v[1] = 0x55;
+        put_first_instruction(&mut bus, 0x4155);
+
+        cpu.run_instruction(&mut bus);
+
+        assert_eq!(previous_pc + 2, cpu.pc); 
+    }
+
+    #[test]
+    pub fn test_5xy0_not_equal() {
+        let mut cpu = Cpu::new();
+        let mut bus = Bus::new();
+        let previous_pc = cpu.pc;
+        cpu.v[1] = 0x45;
+        cpu.v[2] = 0x46;
+        put_first_instruction(&mut bus, 0x5120);
+
+        cpu.run_instruction(&mut bus);
+
+        assert_eq!(previous_pc + 2, cpu.pc);
+    }
+
+    #[test]
+    pub fn test_5xy0_equal() {
+        let mut cpu = Cpu::new();
+        let mut bus = Bus::new();
+        let previous_pc = cpu.pc;
+        cpu.v[1] = 0x46;
+        cpu.v[2] = 0x46;
+        put_first_instruction(&mut bus, 0x5120);
+
+        cpu.run_instruction(&mut bus);
+
+        assert_eq!(previous_pc + 4, cpu.pc);   
+    }
+
+    #[test]
+    #[should_panic]
+    pub fn test_5xy0_last_0() {
+        let mut cpu = Cpu::new();
+        let mut bus = Bus::new();
+        let previous_pc = cpu.pc;
+        cpu.v[1] = 0x46;
+        cpu.v[2] = 0x46;
+        put_first_instruction(&mut bus, 0x5121);
+
+        cpu.run_instruction(&mut bus);
+
+        assert_eq!(previous_pc + 4, cpu.pc); 
+    }
+
+    #[test]
+    pub fn test_6xkk() {
+        let mut cpu = Cpu::new();
+        let mut bus = Bus::new();
+        let previous_pc = cpu.pc;
+        put_first_instruction(&mut bus, 0x6145);
+
+        cpu.run_instruction(&mut bus);
+
+        assert_eq!(previous_pc + 2, cpu.pc);
+        assert_eq!(cpu.v[1], 0x45);
+    }
+
+    #[test]
+    pub fn test_7xkk() {
+        let mut cpu = Cpu::new();
+        let mut bus = Bus::new();
+        let previous_pc = cpu.pc;
+        cpu.v[1] = 0x30;
+        put_first_instruction(&mut bus, 0x7145);
+
+        cpu.run_instruction(&mut bus);
+
+        assert_eq!(previous_pc + 2, cpu.pc);
+        assert_eq!(cpu.v[1], 0x30 + 0x45);
+    }
+
+    #[test]
+    pub fn test_8xy0() {
+        let mut cpu = Cpu::new();
+        let mut bus = Bus::new();
+        let previous_pc = cpu.pc;
+        cpu.v[2] = 0x30;
+        put_first_instruction(&mut bus, 0x8120);
+
+        cpu.run_instruction(&mut bus);
+
+        assert_eq!(previous_pc + 2, cpu.pc);
+        assert_eq!(cpu.v[1], 0x30);
+    }
+
+    #[test]
+    pub fn test_8xy1() {
+        let mut cpu = Cpu::new();
+        let mut bus = Bus::new();
+        let previous_pc = cpu.pc;
+        cpu.v[1] = 0x05;
+        cpu.v[2] = 0x30;
+        put_first_instruction(&mut bus, 0x8121);
+
+        cpu.run_instruction(&mut bus);
+
+        assert_eq!(previous_pc + 2, cpu.pc);
+        assert_eq!(cpu.v[1], 0x30 | 0x05);
+    }
+
+    #[test]
+    pub fn test_8xy2() {
+        let mut cpu = Cpu::new();
+        let mut bus = Bus::new();
+        let previous_pc = cpu.pc;
+        cpu.v[1] = 0x05;
+        cpu.v[2] = 0x30;
+        put_first_instruction(&mut bus, 0x8122);
+
+        cpu.run_instruction(&mut bus);
+
+        assert_eq!(previous_pc + 2, cpu.pc);
+        assert_eq!(cpu.v[1], 0x30 & 0x05);
+    }
+
+    #[test]
+    pub fn test_8xy3() {
+        let mut cpu = Cpu::new();
+        let mut bus = Bus::new();
+        let previous_pc = cpu.pc;
+        cpu.v[1] = 0x05;
+        cpu.v[2] = 0x30;
+        put_first_instruction(&mut bus, 0x8123);
+
+        cpu.run_instruction(&mut bus);
+
+        assert_eq!(previous_pc + 2, cpu.pc);
+        assert_eq!(cpu.v[1], 0x30 ^ 0x05);
+    }
+
+    #[test]
+    pub fn test_8xy4_no_carry() {
+        let mut cpu = Cpu::new();
+        let mut bus = Bus::new();
+        let previous_pc = cpu.pc;
+        cpu.v[1] = 0x06;
+        cpu.v[2] = 0x30;
+        put_first_instruction(&mut bus, 0x8124);
+
+        cpu.run_instruction(&mut bus);
+
+        assert_eq!(previous_pc + 2, cpu.pc);
+        assert_eq!(cpu.v[1], 0x30 + 0x06);
+        assert_eq!(cpu.v[15], 0);
+    }
+
+    #[test]
+    pub fn test_8xy4_set_carry() {
+        let mut cpu = Cpu::new();
+        let mut bus = Bus::new();
+        let previous_pc = cpu.pc;
+        cpu.v[1] = 0xFE;
+        cpu.v[2] = 0x03;
+        put_first_instruction(&mut bus, 0x8124);
+
+        cpu.run_instruction(&mut bus);
+
+        assert_eq!(previous_pc + 2, cpu.pc);
+        assert_eq!(cpu.v[1], 0x1);
+        assert_eq!(cpu.v[15], 1);
+    }
+
+    #[test]
+    pub fn test_8xy5_no_borrow() {
+        let mut cpu = Cpu::new();
+        let mut bus = Bus::new();
+        let previous_pc = cpu.pc;
+        cpu.v[1] = 0x31;
+        cpu.v[2] = 0x30;
+        put_first_instruction(&mut bus, 0x8125);
+
+        cpu.run_instruction(&mut bus);
+
+        assert_eq!(previous_pc + 2, cpu.pc);
+        assert_eq!(cpu.v[1], 0x31 - 0x30);
+        assert_eq!(cpu.v[15], 1);
+    }
+
+    #[test]
+    pub fn test_8xy5_borrow() {
+        let mut cpu = Cpu::new();
+        let mut bus = Bus::new();
+        let previous_pc = cpu.pc;
+        cpu.v[1] = 0x31;
+        cpu.v[2] = 0x32;
+        put_first_instruction(&mut bus, 0x8125);
+
+        cpu.run_instruction(&mut bus);
+
+        assert_eq!(previous_pc + 2, cpu.pc);
+        assert_eq!(cpu.v[1], 0xFF);
+        assert_eq!(cpu.v[15], 0);
+    }
+
+    #[test]
+    pub fn test_8xy6_lsb_0() {
+        let mut cpu = Cpu::new();
+        let mut bus = Bus::new();
+        let previous_pc = cpu.pc;
+        cpu.v[1] = 0x40;
+        put_first_instruction(&mut bus, 0x8126);
+
+        cpu.run_instruction(&mut bus);
+
+        assert_eq!(previous_pc + 2, cpu.pc);
+        assert_eq!(cpu.v[1], 0x40 >> 1);
+        assert_eq!(cpu.v[15], 0);
+    }
+
+    #[test]
+    pub fn test_8xy6_lsb_1() {
+        let mut cpu = Cpu::new();
+        let mut bus = Bus::new();
+        let previous_pc = cpu.pc;
+        cpu.v[1] = 0x41;
+        put_first_instruction(&mut bus, 0x8126);
+
+        cpu.run_instruction(&mut bus);
+
+        assert_eq!(previous_pc + 2, cpu.pc);
+        assert_eq!(cpu.v[1], 0x41 >> 1);
+        assert_eq!(cpu.v[15], 1);
+    }
+
+    #[test]
+    pub fn test_8xy7_no_borrow() {
+        let mut cpu = Cpu::new();
+        let mut bus = Bus::new();
+        let previous_pc = cpu.pc;
+        cpu.v[1] = 0x40;
+        cpu.v[2] = 0x41;
+        put_first_instruction(&mut bus, 0x8127);
+
+        cpu.run_instruction(&mut bus);
+
+        assert_eq!(previous_pc + 2, cpu.pc);
+        assert_eq!(cpu.v[1], 0x1);
+        assert_eq!(cpu.v[15], 1);
+    }
+
+    #[test]
+    pub fn test_8xy7_borrow() {
+        let mut cpu = Cpu::new();
+        let mut bus = Bus::new();
+        let previous_pc = cpu.pc;
+        cpu.v[1] = 0x41;
+        cpu.v[2] = 0x40;
+        put_first_instruction(&mut bus, 0x8127);
+
+        cpu.run_instruction(&mut bus);
+
+        assert_eq!(previous_pc + 2, cpu.pc);
+        assert_eq!(cpu.v[1], 0xFF);
+        assert_eq!(cpu.v[15], 0);
+    }
+
+
+    #[test]
+    #[allow(non_snake_case)]
+    pub fn test_8xyE_msb_0() {
+        let mut cpu = Cpu::new();
+        let mut bus = Bus::new();
+        let previous_pc = cpu.pc;
+        cpu.v[1] = 0x41;
+        put_first_instruction(&mut bus, 0x812E);
+
+        cpu.run_instruction(&mut bus);
+
+        assert_eq!(previous_pc + 2, cpu.pc);
+        assert_eq!(cpu.v[1], 0x41 << 1);
+        assert_eq!(cpu.v[15], 0);
+    }
+
+    #[test]
+    #[allow(non_snake_case)]
+    pub fn test_8xyE_msb_1() {
+        let mut cpu = Cpu::new();
+        let mut bus = Bus::new();
+        let previous_pc = cpu.pc;
+        cpu.v[1] = 0x81;
+        put_first_instruction(&mut bus, 0x812E);
+
+        cpu.run_instruction(&mut bus);
+
+        assert_eq!(previous_pc + 2, cpu.pc);
+        assert_eq!(cpu.v[1], 0x81 << 1);
+        assert_eq!(cpu.v[15], 1);
+    }
 }
