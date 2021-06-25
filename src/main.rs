@@ -1,7 +1,11 @@
+// Disable source code being included in rustdoc
+#![doc(html_no_source)]
+
 extern crate minifb;
 extern crate rand;
 
 use minifb::{Key, KeyRepeat, Window, WindowOptions};
+use std::env;
 use std::fs::File;
 use std::io::Read;
 use std::time::{Duration, Instant};
@@ -42,8 +46,8 @@ fn get_chip8_keycode_for(key: Option<Key>) -> Option<u8> {
 }
 
 fn main() {
-
-    let file = File::open("./data/PONG2.ch8");
+    let args: Vec<String> = env::args().collect();
+    let file = File::open(&args[1]);
     let mut data = Vec::<u8>::new();
 
     // Make sure we can read the ROM
@@ -127,6 +131,5 @@ fn main() {
             last_display_time = Instant::now();
         }
     }
-
 
 }
